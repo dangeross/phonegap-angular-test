@@ -2,7 +2,7 @@
 
 /* Phonegap Services */
 
-var ioServices = angular.module('ioServices', []);
+var ioServices = angular.module('ioServices', ['utilServices']);
 
 ioServices.factory('connectivityService', ['$timeout', function($timeout) {
 	var _onConnectionChangeList = [];
@@ -50,7 +50,7 @@ ioServices.factory('connectivityService', ['$timeout', function($timeout) {
  * File Storage Service
  * @return {object} Angular Service
  **/
-ioServices.factory('storageService', ['$q', '$rootScope', function($q, $rootScope) {
+ioServices.factory('storageService', ['promiseService', function(promiseService) {
 	var _fileSystem = undefined;
 	var _errors = {
 		noFileSystem: {err: 'NoFileSystem', msg: 'Could not initialize file system'},
@@ -75,42 +75,28 @@ ioServices.factory('storageService', ['$q', '$rootScope', function($q, $rootScop
 		};
 	};
 
+	/**
+	 * Initialize File System and get a file
+	 * @param {string} fileURI The file to request
+	 * @param {object} options file options: {create: boolean, exclusive: boolean}
+	 * @return {object} Promise for deferred result
+	 **/
 	var _getFileEntry = function(fileURI, options) {
-		var defer = $q.defer();
+		var defer = promiseService.defer();
 
 		// Initialize the file system
 		_initFileSystem(function() {
 			// Request the file entry
 			_fileSystem.root.getFile(fileURI, options, function(fileEntry) {
-				_resolvePromise(defer, fileEntry);
+				promiseService.resolve(defer, fileEntry);
 			}, function() {
-				_rejectPromise(defer, _errors.fileNotFound);
+				promiseService.reject(defer, _errors.fileNotFound);
 			});
 		}, function() {
-			_rejectPromise(defer, _errors.noFileSystem);
+			promiseService.reject(defer, _errors.noFileSystem);
 		});
 
 		return defer.promise;
-	};
-
-	var _resolvePromise = function(defer, response) {
-		if (!$rootScope.$root.$$phase) {
-			$rootScope.$apply(function() {
-				defer.resolve(response);
-			});
-		} else {
-			defer.resolve(response);
-		}
-	};
-
-	var _rejectPromise = function(defer, response) {
-		if (!$rootScope.$root.$$phase) {
-			$rootScope.$apply(function() {
-				defer.reject(response);
-			});
-		} else {
-			defer.reject(response);
-		}
 	};
 
 	console.log('Initialized storageService');
@@ -122,16 +108,16 @@ ioServices.factory('storageService', ['$q', '$rootScope', function($q, $rootScop
 		 * @return {object} Promise for deferred result
 		 **/
 		exists: function(fileURI) {
-			var defer = $q.defer();
+			var defer = promiseService.defer();
 
 			// Initialize & request the file entry
 			_getFileEntry(fileURI, {create: false}).then(function(fileEntry) {
-				_resolvePromise(defer, {
+				promiseService.resolve(defer, {
 					exists: true,
 					file: fileEntry.name
 				});
 			}, function(res) {
-				_rejectPromise(defer, res);
+				promiseService.reject(defer, res);
 			});
 
 			return defer.promise;		
@@ -142,7 +128,7 @@ ioServices.factory('storageService', ['$q', '$rootScope', function($q, $rootScop
 		 * @return {object} Promise for deferred result
 		 **/
 		read: function(fileURI) {
-			var defer = $q.defer();
+			var defer = promiseService.defer();
 
 			// Initialize & request the file entry
 			_getFileEntry(fileURI, {create: false}).then(function(fileEntry) {
@@ -151,22 +137,22 @@ ioServices.factory('storageService', ['$q', '$rootScope', function($q, $rootScop
 					// Read the file
 					var _fileReader = new FileReader();
 					_fileReader.onloadend = function() {
-						_resolvePromise(defer, {
+						promiseService.resolve(defer, {
 							read: true, 
 							file: fileEntry.name,
 							content: _fileReader.result
 						});
 					};
 					_fileReader.onerror = function() {
-						_rejectPromise(defer, _errors.fileNotReadable);
+						promiseService.reject(defer, _errors.fileNotReadable);
 					};
 
 					_fileReader.readAsText(file);
 				}, function() {
-					_rejectPromise(defer, _errors.fileNotFound);
+					promiseService.reject(defer, _errors.fileNotFound);
 				});
 			}, function(res) {
-				_rejectPromise(defer, res);
+				promiseService.reject(defer, res);
 			});
 
 			return defer.promise;
@@ -178,7 +164,7 @@ ioServices.factory('storageService', ['$q', '$rootScope', function($q, $rootScop
 		 * @return {object} Promise for deferred result
 		 **/
 		write: function(fileURI, content) {
-			var defer = $q.defer();
+			var defer = promiseService.defer();
 
 			// Initialize & request the file entry
 			_getFileEntry(fileURI, {create: true}).then(function(fileEntry) {
@@ -186,21 +172,21 @@ ioServices.factory('storageService', ['$q', '$rootScope', function($q, $rootScop
 				fileEntry.createWriter(function(fileWriter) {
 					// Write the file
 					fileWriter.onwriteend = function() {
-						_resolvePromise(defer, {
+						promiseService.resolve(defer, {
 							write: true,
 							file: fileEntry.name
 						});
 					};
 					fileWriter.onerror = function() {
-						_rejectPromise(defer, _errors.fileNotWritable);
+						promiseService.reject(defer, _errors.fileNotWritable);
 					};
 
 					fileWriter.write(content);
 				}, function() {
-					_rejectPromise(defer, _errors.fileNotFound);
+					promiseService.reject(defer, _errors.fileNotFound);
 				});
 			}, function(res) {
-				_rejectPromise(defer, res);
+				promiseService.reject(defer, res);
 			});
 
 			return defer.promise;		
@@ -211,20 +197,20 @@ ioServices.factory('storageService', ['$q', '$rootScope', function($q, $rootScop
 		 * @return {object} Promise for deferred result
 		 **/
 		remove: function(fileURI) {
-			var defer = $q.defer();
+			var defer = promiseService.defer();
 
 			// Initialize & request the file entry
 			_getFileEntry(fileURI, {create: false}).then(function(fileEntry) {
 				fileEntry.remove(function() {
-					_resolvePromise(defer, {
+					promiseService.resolve(defer, {
 						remove: true,
 						file: fileEntry.name
 					});
 				}, function() {
-					_rejectPromise(defer, _errors.fileNotFound);
+					promiseService.reject(defer, _errors.fileNotFound);
 				});
 			}, function(res) {
-				_rejectPromise(defer, res);
+				promiseService.reject(defer, res);
 			});
 
 			return defer.promise;

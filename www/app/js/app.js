@@ -2,7 +2,7 @@
 
 /* App Module */
 
-angular.module('app', ['syncronizationServices', 'ioServices'])
+angular.module('app', ['syncronizationServices'])
     .config(['$routeProvider', function($routeProvider) {
         $routeProvider
             .when('/home', {templateUrl: 'partials/home.html', controller: HomeController})

@@ -2,107 +2,53 @@
 
 /* Home Controller */
 
-var HomeController = ['$scope', 'connectivityService', function($scope, connectivityService) {
+var HomeController = ['$scope', 'storageService', function($scope, storageService) {
 	$scope.data = {
 		title: 'phonegap',
 		list: ['iPhone', 'iPod', 'iPad']
 	};
 
-	console.log('Online: ' + connectivityService.isOnline());
-	
-	connectivityService.onConnectionChange(function(type) {
-		console.log('Connection now: ' + type);
+	storageService.exists('text.txt').then(function(res) {
+		console.log('Exists resolve: ' + res.file + '(' + res.exists + ')');
+
+		storageService.write('text.txt', 'This is a test').then(function(res) {
+			console.log('Write resolve: ' + res.file + '(' + res.write + ')');
+
+			storageService.read('text.txt').then(function(res) {
+				console.log('Read resolve: ' + res.file + '(' + res.read + '): ' + res.content);
+
+				storageService.remove('text.txt').then(function(res) {
+					console.log('Remove resolve: ' + res.file + '(' + res.remove + ')');
+				}, function(res) {
+					console.log('Remove reject: ' + res.err + '(' + res.msg + ')');
+				});
+			}, function(res) {
+				console.log('Read reject: ' + res.err + '(' + res.msg + ')');
+			});
+		}, function(res) {
+			console.log('Write reject: ' + res.err + '(' + res.msg + ')');
+		});
+	}, function(res) {
+		console.log('Exists reject: ' + res.err + '(' + res.msg + ')');
+		
+		storageService.write('text.txt', 'This is a test').then(function(res) {
+			console.log('Write resolve: ' + res.file + '(' + res.write + ')');
+
+			storageService.read('text.txt').then(function(res) {
+				console.log('Read resolve: ' + res.file + '(' + res.read + '): ' + res.content);
+
+				storageService.remove('text.txt').then(function(res) {
+					console.log('Remove resolve: ' + res.file + '(' + res.remove + ')');
+				}, function(res) {
+					console.log('Remove reject: ' + res.err + '(' + res.msg + ')');
+				});
+			}, function(res) {
+				console.log('Read reject: ' + res.err + '(' + res.msg + ')');
+			});
+		}, function(res) {
+			console.log('Write reject: ' + res.err + '(' + res.msg + ')');
+		});
 	});
-
-/*	storageService.exists('text.txt', function() {
-		console.log('Exists');
-
-		storageService.write('text.txt', 'This is a test', function() {
-			console.log('Write success');
-
-			storageService.read('text.txt', function(res) {
-				console.log('Read success: '+res);
-
-				storageService.remove('text.txt', function() {
-					console.log('Remove success');
-				}, function() {
-					console.log('Remove fail');
-				});
-			}, function() {
-				console.log('Write fail');
-
-				storageService.remove('text.txt', function() {
-					console.log('Remove success');
-				}, function() {
-					console.log('Remove fail');
-				});
-			});
-		}, function() {
-			console.log('Write fail');
-
-			storageService.read('text.txt', function(res) {
-				console.log('Read success: '+res);
-
-				storageService.remove('text.txt', function() {
-					console.log('Remove success');
-				}, function() {
-					console.log('Remove fail');
-				});
-			}, function() {
-				console.log('Write fail');
-
-				storageService.remove('text.txt', function() {
-					console.log('Remove success');
-				}, function() {
-					console.log('Remove fail');
-				});
-			});
-		});
-	}, function() {
-		console.log('Not exists');
-
-		storageService.write('text.txt', 'This is a test', function() {
-			console.log('Write success');
-
-			storageService.read('text.txt', function(res) {
-				console.log('Read success: '+res);
-
-				storageService.remove('text.txt', function() {
-					console.log('Remove success');
-				}, function() {
-					console.log('Remove fail');
-				});
-			}, function() {
-				console.log('Write fail');
-
-				storageService.remove('text.txt', function() {
-					console.log('Remove success');
-				}, function() {
-					console.log('Remove fail');
-				});
-			});
-		}, function() {
-			console.log('Write fail');
-
-			storageService.read('text.txt', function(res) {
-				console.log('Read success: '+res);
-
-				storageService.remove('text.txt', function() {
-					console.log('Remove success');
-				}, function() {
-					console.log('Remove fail');
-				});
-			}, function() {
-				console.log('Write fail');
-
-				storageService.remove('text.txt', function() {
-					console.log('Remove success');
-				}, function() {
-					console.log('Remove fail');
-				});
-			});
-		});
-	});*/
 }];
 
 /* Login Controller */

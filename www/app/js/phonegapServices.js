@@ -50,8 +50,14 @@ ioServices.factory('connectivityService', ['$timeout', function($timeout) {
  * File Storage Service
  * @return {object} Angular Service
  **/
-ioServices.factory('storageService', function() {
+ioServices.factory('storageService', ['$q', '$rootScope', function($q, $rootScope) {
 	var _fileSystem = undefined;
+	var _errors = {
+		noFileSystem: {err: 'NoFileSystem', msg: 'Could not initialize file system'},
+		fileNotFound: {err: 'FileNotFound', msg: 'Could not find requested file'},
+		fileNotReadable: {err: 'FileNotReadable', msg: 'Could not read from file'},
+		fileNotWritable: {err: 'FileNotWritable', msg: 'Could not write to file'}
+	};
 
 	/**
 	 * Initializes the local File System
@@ -69,72 +75,159 @@ ioServices.factory('storageService', function() {
 		};
 	};
 
-	/**
-	 * A placeholder callback function in case one is not supplied
-	 **/
-	function _cb() {};
+	var _getFileEntry = function(fileURI, options) {
+		var defer = $q.defer();
+
+		// Initialize the file system
+		_initFileSystem(function() {
+			// Request the file entry
+			_fileSystem.root.getFile(fileURI, options, function(fileEntry) {
+				_resolvePromise(defer, fileEntry);
+			}, function() {
+				_rejectPromise(defer, _errors.fileNotFound);
+			});
+		}, function() {
+			_rejectPromise(defer, _errors.noFileSystem);
+		});
+
+		return defer.promise;
+	};
+
+	var _resolvePromise = function(defer, response) {
+		if (!$rootScope.$root.$$phase) {
+			$rootScope.$apply(function() {
+				defer.resolve(response);
+			});
+		} else {
+			defer.resolve(response);
+		}
+	};
+
+	var _rejectPromise = function(defer, response) {
+		if (!$rootScope.$root.$$phase) {
+			$rootScope.$apply(function() {
+				defer.reject(response);
+			});
+		} else {
+			defer.reject(response);
+		}
+	};
 
 	console.log('Initialized storageService');
 
 	return {
-		exists: function(fileURI, onSuccessCb, onErrorCb) {
-			onSuccessCb = onSuccessCb || _cb;
-			onErrorCb = onErrorCb || _cb;
+		/**
+		 * Check if a file exists
+		 * @param {string} fileURI The file to check
+		 * @return {object} Promise for deferred result
+		 **/
+		exists: function(fileURI) {
+			var defer = $q.defer();
 
-			// Initialize the file system
-			_initFileSystem(function() {
-				// Request the file entry
-				_fileSystem.root.getFile(fileURI, {create: false}, onSuccessCb, onErrorCb);
-			});			
+			// Initialize & request the file entry
+			_getFileEntry(fileURI, {create: false}).then(function(fileEntry) {
+				_resolvePromise(defer, {
+					exists: true,
+					file: fileEntry.name
+				});
+			}, function(res) {
+				_rejectPromise(defer, res);
+			});
+
+			return defer.promise;		
 		},
-		read: function(fileURI, onSuccessCb, onErrorCb) {
-			onSuccessCb = onSuccessCb || _cb;
-			onErrorCb = onErrorCb || _cb;
+		/**
+		 * Read a file
+		 * @param {string} fileURI The file to read
+		 * @return {object} Promise for deferred result
+		 **/
+		read: function(fileURI) {
+			var defer = $q.defer();
 
-			// Initialize the file system
-			_initFileSystem(function() {
-				// Request the file entry
-				_fileSystem.root.getFile(fileURI, {create: false}, function(fileEntry) {
-					// Request the file
-					fileEntry.file(function(file) {
-						// Read the file
-						var _fileReader = new FileReader();
-						_fileReader.onloadend = function() {
-							onSuccessCb(_fileReader.result);
-						};
-						_fileReader.onerror = onErrorCb;
-						_fileReader.readAsText(file);
-					}, onErrorCb);
-				}, onErrorCb);
-			}, onErrorCb);
+			// Initialize & request the file entry
+			_getFileEntry(fileURI, {create: false}).then(function(fileEntry) {
+				// Request the file
+				fileEntry.file(function(file) {
+					// Read the file
+					var _fileReader = new FileReader();
+					_fileReader.onloadend = function() {
+						_resolvePromise(defer, {
+							read: true, 
+							file: fileEntry.name,
+							content: _fileReader.result
+						});
+					};
+					_fileReader.onerror = function() {
+						_rejectPromise(defer, _errors.fileNotReadable);
+					};
+
+					_fileReader.readAsText(file);
+				}, function() {
+					_rejectPromise(defer, _errors.fileNotFound);
+				});
+			}, function(res) {
+				_rejectPromise(defer, res);
+			});
+
+			return defer.promise;
 		},
-		write: function(fileURI, content, onSuccessCb, onErrorCb) {
-			onSuccessCb = onSuccessCb || _cb;
-			onErrorCb = onErrorCb || _cb;
+		/**
+		 * Write a file
+		 * @param {string} fileURI The file to write
+		 * @param {string} content The content to write to file
+		 * @return {object} Promise for deferred result
+		 **/
+		write: function(fileURI, content) {
+			var defer = $q.defer();
 
-			_initFileSystem(function() {
-				// Request the file entry
-				_fileSystem.root.getFile(fileURI, {create: true}, function(fileEntry) {
-					// Request the file
-					fileEntry.createWriter(function(fileWriter) {
-						// Write the file
-						fileWriter.onwriteend = onSuccessCb;
-						fileWriter.onerror = onErrorCb;
-						fileWriter.write(content);
-					}, onErrorCb);
-				}, onErrorCb);
-			}, onErrorCb);			
+			// Initialize & request the file entry
+			_getFileEntry(fileURI, {create: true}).then(function(fileEntry) {
+				// Request the file
+				fileEntry.createWriter(function(fileWriter) {
+					// Write the file
+					fileWriter.onwriteend = function() {
+						_resolvePromise(defer, {
+							write: true,
+							file: fileEntry.name
+						});
+					};
+					fileWriter.onerror = function() {
+						_rejectPromise(defer, _errors.fileNotWritable);
+					};
+
+					fileWriter.write(content);
+				}, function() {
+					_rejectPromise(defer, _errors.fileNotFound);
+				});
+			}, function(res) {
+				_rejectPromise(defer, res);
+			});
+
+			return defer.promise;		
 		},
-		remove: function(fileURI, onSuccessCb, onErrorCb) {
-			onSuccessCb = onSuccessCb || _cb;
-			onErrorCb = onErrorCb || _cb;
+		/**
+		 * Remove a file
+		 * @param {string} fileURI The file to remove
+		 * @return {object} Promise for deferred result
+		 **/
+		remove: function(fileURI) {
+			var defer = $q.defer();
 
-			_initFileSystem(function() {
-				// Request the file entry
-				_fileSystem.root.getFile(fileURI, {create: false}, function(fileEntry) {
-					fileEntry.remove(onSuccessCb, onErrorCb);
-				}, onErrorCb);
-			}, onErrorCb);
+			// Initialize & request the file entry
+			_getFileEntry(fileURI, {create: false}).then(function(fileEntry) {
+				fileEntry.remove(function() {
+					_resolvePromise(defer, {
+						remove: true,
+						file: fileEntry.name
+					});
+				}, function() {
+					_rejectPromise(defer, _errors.fileNotFound);
+				});
+			}, function(res) {
+				_rejectPromise(defer, res);
+			});
+
+			return defer.promise;
 		}
 	};
-});
+}]);

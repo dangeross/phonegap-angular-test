@@ -8,7 +8,9 @@ var syncServices = angular.module('syncronizationServices', ['ioServices']);
  * Syncronization Service
  * @return {object} Angular Service
  **/
-syncServices.factory('applicationSyncronizationService', ['$http', 'connectivityService', 'storageService', function($http, connectivityService, storageService) {
+syncServices.factory('applicationSyncronizationService', 
+					 ['$http', 'connectivityService', 'storageService', 
+					 function($http, connectivityService, storageService) {
 	var _isRunning = false;
 	var _updateCbList = [];
 
